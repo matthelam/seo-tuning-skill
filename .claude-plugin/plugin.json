@@ -1,0 +1,10 @@
+{
+  "name": "seo-tuning",
+  "version": "1.0.0",
+  "description": "Tune a website's pages for search and answer-engine relevance with seo-jev-analyzer and is-agentic: researched keywords, tested metadata, measured passes and a live report.",
+  "author": { "name": "Matt Lam", "url": "https://github.com/matthelam" },
+  "homepage": "https://github.com/matthelam/seo-tuning-skill",
+  "repository": "https://github.com/matthelam/seo-tuning-skill",
+  "license": "MIT",
+  "keywords": ["seo", "aeo", "metadata", "seo-jev-analyzer", "is-agentic"]
+}

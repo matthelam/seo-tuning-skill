@@ -1,0 +1,15 @@
+# Keeps the SHA-pinned GitHub Actions and the pinned lint tool current, one grouped PR each per week.
+# The skill's scripts use the Python standard library only.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly

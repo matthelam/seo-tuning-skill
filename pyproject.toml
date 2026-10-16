@@ -1,0 +1,13 @@
+# Lint configuration only; the skill is not a Python package. Scripts use the standard library.
+[tool.ruff]
+line-length = 130
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "S"]
+# E701/E702: short one-line statements are used deliberately in the CLI's argument setup.
+# S310: urlopen is given only the configured MCP URL or a local test server.
+ignore = ["E701", "E702", "S310"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "S104", "S105", "S106", "E402"]

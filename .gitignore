@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+.ruff_cache/
+.env
+.env.*
+# A tuning workspace holds a site's scores and research; keep it out of this repository.
+/seo-tuning/

@@ -1,0 +1,12 @@
+{
+  "name": "seo-tuning-skill",
+  "description": "The seo-tuning skill for Claude Code: measured SEO and AEO tuning passes with seo-jev-analyzer and is-agentic.",
+  "owner": { "name": "Matt Lam", "url": "https://github.com/matthelam" },
+  "plugins": [
+    {
+      "name": "seo-tuning",
+      "source": "./",
+      "description": "Tune a website's pages for search and answer-engine relevance with seo-jev-analyzer and is-agentic."
+    }
+  ]
+}

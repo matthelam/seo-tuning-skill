@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SEO Tuning Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;700&family=Public+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one column. Series overview (when the session covers several pages), page picker, then per
+   page: summary tiles, the north-star bar, passes with decisions and trials, keywords, backlog.
+   The page is fixed; every number comes from data/*.json via calc.js. */
+:root {
+  --bg: #f6f7f8; --surface: #ffffff; --fg: #1b232b; --muted: #5d6b78; --line: #dde2e7;
+  --accent: #0f6e7a; --accent-soft: #e2f1f2; --up: #1d7a3e; --down: #b3332b; --level: #6b7681;
+  --display: "Familjen Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --body: "Public Sans", "Segoe UI", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12171c; --surface: #1a2128; --fg: #e4e9ee; --muted: #93a1ae; --line: #2b343d;
+  --accent: #4fb8c4; --accent-soft: #183236; --up: #5cc47f; --down: #ec7a70; --level: #93a1ae; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12171c; --surface: #1a2128; --fg: #e4e9ee; --muted: #93a1ae; --line: #2b343d;
+  --accent: #4fb8c4; --accent-soft: #183236; --up: #5cc47f; --down: #ec7a70; --level: #93a1ae; color-scheme: dark }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1080px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 56px; display: grid; gap: 24px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
+h1 { font-size: 1.8rem; letter-spacing: -0.01em; }
+h2 { font-size: 1.1rem; }
+h3 { font-size: 0.95rem; }
+p { margin: 0; }
+a { color: var(--accent); }
+.sub { color: var(--muted); }
+.eyebrow { font-family: var(--mono); font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; display: grid; gap: 10px; min-width: 0; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.tile .big { font-family: var(--display); font-size: 1.9rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.status { display: inline-flex; align-items: center; gap: 6px; font: 500 .78rem var(--mono); padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); }
+.pill { font: 500 .7rem var(--mono); text-transform: uppercase; letter-spacing: .05em; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.up { color: var(--up); } .down { color: var(--down); } .level { color: var(--level); }
+.bar { position: relative; height: 34px; }
+.bar .track { position: absolute; inset: 14px 0 auto 0; height: 6px; border-radius: 3px; background: var(--line); }
+.bar .fill { position: absolute; top: 14px; left: 0; height: 6px; border-radius: 3px; background: var(--accent); }
+.bar .mark { position: absolute; top: 6px; width: 2px; height: 22px; background: var(--fg); }
+.bar .lbl { position: absolute; top: -4px; transform: translateX(-50%); font: .68rem var(--mono); color: var(--muted); white-space: nowrap; }
+.passes, .pages { display: flex; gap: 8px; flex-wrap: wrap; }
+.pass, .pg { border: 1px solid var(--line); background: var(--surface); color: var(--fg); border-radius: 999px; padding: 4px 12px; font: 500 .82rem var(--mono); cursor: pointer; }
+.pass[aria-pressed="true"], .pg[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.pass:focus-visible, .pg:focus-visible, tr.pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+tr.pick { cursor: pointer; }
+tr.pick[aria-selected="true"] td { background: var(--accent-soft); }
+ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.decision { border-left: 3px solid var(--line); padding-left: 10px; display: grid; gap: 6px; }
+.diff { display: grid; gap: 6px; font-size: .86rem; }
+.diff div { display: grid; gap: 2px; }
+.old { color: var(--muted); text-decoration: line-through; }
+.new { color: var(--fg); }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 560px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 500 .7rem var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.rbar { display: inline-block; width: 60px; height: 6px; border-radius: 3px; background: var(--line); vertical-align: middle; margin-left: 6px; position: relative; overflow: hidden; }
+.rbar i { position: absolute; inset: 0 auto 0 0; background: var(--accent); }
+.empty { color: var(--muted); font-style: italic; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header style="display:grid;gap:6px">
+    <div class="eyebrow" id="site"></div>
+    <h1 id="title">SEO Tuning Report</h1>
+    <div><span class="status" id="status"></span></div>
+  </header>
+  <section class="card" id="series" aria-labelledby="sh" hidden>
+    <h2 id="sh">Series overview</h2>
+    <p class="sub">Live scores per page, baseline against now. Pick a row to see that page below.</p>
+    <div class="tablewrap"><table id="seriestable"></table></div>
+  </section>
+  <section style="display:grid;gap:8px">
+    <div class="pages" id="pagebtns" role="group" aria-label="Choose page"></div>
+    <h2 id="ptitle"></h2>
+    <p class="sub" id="intent"></p>
+    <p class="sub num" id="pstatus"></p>
+  </section>
+  <section class="tiles" id="tiles" aria-label="Summary"></section>
+  <section class="card" aria-labelledby="nsh">
+    <h2 id="nsh">North star: metadata against the page's own ceiling</h2>
+    <p class="sub">The whole-page score is what the content supports. Fidelity is how much of it the title, description and structured data get across. Target: close to 100%.</p>
+    <div class="bar" id="nsbar" role="img"></div>
+  </section>
+  <section class="card" aria-labelledby="ph">
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:space-between;align-items:center">
+      <h2 id="ph">Passes</h2><div class="passes" id="passbtns" role="group" aria-label="Choose pass"></div>
+    </div>
+    <div id="passdetail" style="display:grid;gap:14px"></div>
+  </section>
+  <section class="card" aria-labelledby="kh">
+    <h2 id="kh">Keywords</h2>
+    <p class="sub" id="kwnote">Researched from the intent, never from the page. Ratings run 0 to 1; 0.5 or more on the whole page counts as covered.</p>
+    <div class="tablewrap"><table id="kw"></table></div>
+  </section>
+  <section class="card" aria-labelledby="bh">
+    <h2 id="bh">Content backlog</h2>
+    <div id="backlog"></div>
+  </section>
+  <p class="sub num" id="method" style="font-size:.78rem"></p>
+</div>
+
+<script src="calc.js"></script>
+<script>
+const C = window.ReportCalc
+const $ = (s) => document.querySelector(s)
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+const f2 = (x) => (x == null ? '–' : x.toFixed(2))
+const pct = (x) => (x == null ? '–' : Math.round(x * 100) + '%')
+const sign = (x) => (x == null ? '' : (x > 0 ? '+' : '') + x.toFixed(2))
+const cls = (v) => (v === 'up' ? 'up' : v === 'down' ? 'down' : 'level')
+const d = (a, b) => (a != null && b != null ? b - a : null)
+let index, method, pages = [], pi = 0, sel = 0
+
+// A page's keywords: the researched list when present, else the expected terms its baseline was scored on.
+const kwsOf = (pg) => pg.keywords?.length ? pg.keywords
+  : (pg.passes[0]?.live?.inputs?.expected ?? []).map((term) => ({ term, sources: null }))
+
+async function load() {
+  index = await (await fetch('data/index.json')).json()
+  method = await (await fetch('data/method.json')).json().catch(() => ({}))
+  // Single-page sessions (scope "page") keep their old shape: one page, passes at the top level.
+  const defs = index.pages ?? [{ ...index.page, title: index.title, passes: index.passes }]
+  pages = await Promise.all(defs.map(async (pg) => ({
+    ...pg, passes: await Promise.all(pg.passes.map(async (p) => ({ ...p, ...(await (await fetch(p.file)).json()) }))),
+  })))
+  const want = new URLSearchParams(location.hash.slice(1)).get('page')
+  pi = Math.max(0, pages.findIndex((p) => p.slug === want))
+  sel = pages[pi].passes.length - 1
+  render()
+}
+
+const P = () => pages[pi]
+const series = () => C.liveSeries(P().passes)
+
+function seriesTable() {
+  if (pages.length < 2) return
+  $('#series').hidden = false
+  const cell = (a, b) => `<td class="n">${f2(b)} <span class="${d(a, b) > 0 ? 'up' : 'level'}">${sign(d(a, b))}</span></td>`
+  $('#seriestable').innerHTML = `<thead><tr><th>Page</th><th>Metadata</th><th>Whole page</th><th>Fidelity</th><th>Covered</th><th>Passes</th></tr></thead><tbody>` +
+    pages.map((pg, i) => {
+      const s = C.liveSeries(pg.passes), base = s[0], now = s.at(-1), k = kwsOf(pg)
+      return `<tr class="pick" tabindex="0" data-p="${i}" aria-selected="${i === pi}"><td>${esc(pg.title)}</td>
+        ${cell(C.score(base, 'meta'), C.score(now, 'meta'))}${cell(C.score(base, 'page'), C.score(now, 'page'))}
+        <td class="n">${pct(C.fidelity(now))} <span class="sub">from ${pct(C.fidelity(base))}</span></td>
+        <td class="n">${C.covered(now, k)}/${k.length}</td><td class="n">${pg.passes.length - 1}</td></tr>`
+    }).join('') + '</tbody>'
+}
+
+function tiles() {
+  const kws = kwsOf(P()), s = series(), base = s[0], now = s.at(-1)
+  const t = (label, value, note, c = 'level') =>
+    `<div class="card tile"><span class="eyebrow">${label}</span><span class="big">${value}</span><span class="${c}">${note}</span></div>`
+  const dm = d(C.score(base, 'meta'), C.score(now, 'meta')), dp = d(C.score(base, 'page'), C.score(now, 'page'))
+  $('#tiles').innerHTML =
+    t('Fidelity (live)', pct(C.fidelity(now)), `baseline ${pct(C.fidelity(base))}`) +
+    t('Metadata (live)', f2(C.score(now, 'meta')), `${sign(dm)} vs baseline ${f2(C.score(base, 'meta'))}`, dm > 0 ? 'up' : 'level') +
+    t('Whole page (live)', f2(C.score(now, 'page')), `${sign(dp)} vs baseline ${f2(C.score(base, 'page'))}`, dp > 0 ? 'up' : 'level') +
+    t('Keywords covered', `${C.covered(now, kws)}/${kws.length}`, `baseline ${C.covered(base, kws)}/${kws.length}`)
+}
+
+function northStar() {
+  const now = series().at(-1), base = P().passes[0].live
+  const m = C.score(now, 'meta') ?? 0, p = C.score(now, 'page') ?? 0, b = C.score(base, 'meta') ?? 0
+  const x = (v) => `${(v / 10) * 100}%`
+  $('#nsbar').setAttribute('aria-label', `Metadata ${f2(m)} of a ${f2(p)} ceiling on a 0 to 10 scale; baseline metadata ${f2(b)}.`)
+  $('#nsbar').innerHTML = `<div class="track"></div><div class="fill" style="width:${x(m)}"></div>
+    <div class="mark" style="left:${x(b)};opacity:.4"></div><span class="lbl" style="left:${x(b)}">baseline ${f2(b)}</span>
+    <div class="mark" style="left:${x(m)}"></div><span class="lbl" style="left:${x(m)};top:28px">metadata ${f2(m)}</span>
+    <div class="mark" style="left:${x(p)};background:var(--accent)"></div><span class="lbl" style="left:${x(p)}">page ceiling ${f2(p)}</span>`
+}
+
+function passDetail() {
+  const passes = P().passes
+  $('#passbtns').innerHTML = passes.map((p, i) =>
+    `<button class="pass" data-i="${i}" aria-pressed="${i === sel}">${esc(p.label)}</button>`).join('')
+  const p = passes[sel]
+  const notes = (p.notes ?? []).map((n) => `<li>${esc(n)}</li>`).join('')
+  const decisions = (p.decisions ?? []).map((dc) => {
+    const diff = dc.diff ? `<div class="diff">${dc.diff.map(([a, b]) => `<div><span class="old">${esc(a)}</span><span class="new">${esc(b)}</span></div>`).join('')}</div>` : ''
+    const st = { approved: 'up', kept: 'up', rejected: 'down', stopped: 'level' }[dc.status] ?? 'level'
+    return `<div class="decision"><div><span class="pill ${st}">${esc(dc.status)}</span> <span class="eyebrow">${esc(dc.kind)}</span></div>
+      <strong>${esc(dc.title)}</strong>${dc.detail ? `<span class="sub">${esc(dc.detail)}</span>` : ''}${diff}</div>`
+  }).join('')
+  const trials = [...(p.trials ?? []), ...(p.trialSummaries ?? []).map((s) => ({ label: s.label, result: s }))]
+  const rows = trials.flatMap((tr) => {
+    const err = C.trialError(tr)
+    if (err) return [`<tr><td>${esc(tr.label)}</td><td colspan="5" class="sub">${esc(err.slice(0, 120))}</td></tr>`]
+    return C.trialRows(tr).map((r, j) => `<tr><td>${j === 0 ? esc(tr.label) : ''}</td><td>${esc(r.metric)}</td>
+      <td class="n">${f2(r.before)}</td><td class="n">${f2(r.after)}</td><td class="n ${cls(r.verdict)}">${sign(r.delta)}</td>
+      <td><span class="pill ${cls(r.verdict)}">${esc(r.verdict)}</span></td></tr>`)
+  }).join('')
+  const live = p.live ? `<p class="num">Live after this pass: metadata ${f2(C.score(p.live, 'meta'))} · whole page ${f2(C.score(p.live, 'page'))} · fidelity ${pct(C.fidelity(p.live))}${p.pr ? ` · <a href="${esc(p.pr)}">PR</a>` : ''}</p>` : ''
+  $('#passdetail').innerHTML = `${live}${notes ? `<ul>${notes}</ul>` : ''}
+    ${decisions ? `<h3>Decisions</h3>${decisions}` : ''}
+    ${rows ? `<h3>Trials (test_revision against the live page)</h3><div class="tablewrap"><table><thead><tr><th>Trial</th><th>Score</th><th>Before</th><th>After</th><th>Change</th><th>Verdict</th></tr></thead><tbody>${rows}</tbody></table></div>` : ''}`
+}
+
+function keywords() {
+  const base = P().passes[0].live, now = series().at(-1)
+  const researched = !!P().keywords?.length
+  $('#kwnote').textContent = researched
+    ? 'Researched from the intent, never from the page. Ratings run 0 to 1; 0.5 or more on the whole page counts as covered.'
+    : 'Not researched yet: these are the expected terms the baseline was scored on. Ratings run 0 to 1; 0.5 or more on the whole page counts as covered.'
+  const cell = (v) => `<td class="n">${f2(v)}<span class="rbar"><i style="width:${(v ?? 0) * 100}%"></i></span></td>`
+  $('#kw').innerHTML = `<thead><tr><th>Keyword</th><th>Sources</th><th>Page, baseline</th><th>Page, now</th><th>Metadata, baseline</th><th>Metadata, now</th></tr></thead><tbody>` +
+    kwsOf(P()).map((k) => `<tr><td>${esc(k.term)}</td><td class="n">${k.sources ?? '–'}</td>
+      ${cell(C.ratings(base, 'page')[k.term])}${cell(C.ratings(now, 'page')[k.term])}
+      ${cell(C.ratings(base, 'meta')[k.term])}${cell(C.ratings(now, 'meta')[k.term])}</tr>`).join('') + '</tbody>'
+}
+
+function renderPage() {
+  const pg = P()
+  $('#pagebtns').innerHTML = pages.length < 2 ? '' : pages.map((p, i) =>
+    `<button class="pg" data-p="${i}" aria-pressed="${i === pi}">${esc(p.short ?? p.title)}</button>`).join('')
+  $('#ptitle').textContent = pg.title
+  $('#intent').textContent = `${pg.path} · Intent: ${pg.intent}`
+  $('#pstatus').textContent = pg.statusText ?? ''
+  seriesTable(); tiles(); northStar(); passDetail(); keywords()
+  const bl = pg.backlog ?? index.backlog
+  $('#backlog').innerHTML = bl?.length
+    ? `<ul>${bl.map((b) => `<li><strong>${esc(b.term)}</strong>${b.sources ? ` <span class="num sub">(${b.sources} sources)</span>` : ''}: ${esc(b.why)}</li>`).join('')}</ul>`
+    : '<p class="empty">Nothing in the backlog.</p>'
+}
+
+function render() {
+  $('#site').textContent = index.site
+  $('#title').textContent = `SEO tuning: ${index.title}`
+  const n = Math.max(...pages.map((p) => p.passes.length - 1))
+  $('#status').textContent = `${index.statusText} · ${n} of ${index.maxPasses} passes · updated ${index.updated}`
+  $('#method').textContent = `seo-jev ${method.model ?? ''} · question version ${method.questionVersion ?? ''} · noise floor ${method.noiseFloor ?? ''} · changes within the noise threshold count as level`
+  renderPage()
+}
+
+function pick(i) { pi = i; sel = P().passes.length - 1; try { history.replaceState(null, '', `#page=${P().slug ?? i}`) } catch {} ; renderPage() }
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('.pass'); if (b) { sel = +b.dataset.i; passDetail(); return }
+  const g = e.target.closest('.pg, tr.pick'); if (g) pick(+g.dataset.p)
+})
+document.addEventListener('keydown', (e) => { const r = e.target.closest?.('tr.pick'); if (r && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pick(+r.dataset.p) } })
+load().catch((err) => { document.querySelector('.wrap').insertAdjacentHTML('beforeend', `<p class="down">Could not load the report data: ${esc(err.message)}</p>`) })
+</script>
+</body>
+</html>
